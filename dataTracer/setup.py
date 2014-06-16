@@ -15,5 +15,5 @@ options = {"py2exe":
 setup(
     options = options,
     zipfile=None,
-    console=[{"script": "dataTrace.py", "icon_resources": [(0, "sbell.ico")] }]
+    console=[{"script": "dataTrace.py", "icon_resources": [(0, "asset\sbell_new.ico")] }]
     )
