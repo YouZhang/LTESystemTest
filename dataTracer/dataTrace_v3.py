@@ -22,7 +22,7 @@ def makeOptions():
         "lowestRate" :"set the min threshold to abandon the data\type(parser.parse_args()[0])neg: 0",
         "direction"  :"set the upload or download\ndl --> calculate the download data\nul --> calculate the upload data",
         "interval"   :"set the interval time(seconds) to calculate the data\neg: 60",
-        "offset"     :"set the data item you want to ignore\neg: 2parser.parse_args() --> abandon the first 2 items and the last 2 items"
+        "offset"     :"set the data item you want to ignore\neg: 2 --> abandon the first 2 items and the last 2 items"
     }
     parser = ArgumentParser()
     parser.add_argument("-startTime",dest = "startTime",nargs="+",help = "set the start time to calculate in the record File\neg: 2014-05-30 07:34:19")
@@ -92,7 +92,7 @@ class DataTracer(object):
     def initConfig(self):
         #this config may changed by different version of netMeter log file
         self.perOffset = 69              # 69 char to locate per line
-
+        self.fileHeaderOffset = 236  # 9 lines per header
 
     #---------func des---------------
     #    generate the patten of date
@@ -133,7 +133,11 @@ class DataTracer(object):
                     self.calResult(ratePerInterval)
                     startPos = startPos + self.perOffset
                     ratePerInterval = self.getRate(lines,startPos)
-                    rateList.append(ratePerInterval)
+                    if( ratePerInterval == -2 ):
+                        startPos += self.fileHeaderOffset
+                        # TODO:the min -2 deal
+                    else:
+                        rateList.append(ratePerInterval)
                 if( self.minRate == self.highestRate ):
                     self.minRate = -1
                 for rate in rateList:
@@ -179,20 +183,16 @@ class DataTracer(object):
     def getRate(self,lines,startPos):
         matchCase = "\d{2}/\d{2}/\d{4}   \d{2}:\d{2}:\d{2}\s+(\d+)\s+(\d+)"
         patten = re.compile(matchCase)
-        if( self.direction == "dl" ):
-            matchedItem = patten.match(lines,startPos)
-            dataDL = int(matchedItem.group(1))
-            if( dataDL < self.highestRate and dataDL > self.lowestRate ):
-                return dataDL
-            else:
-                return -1
-        elif( self.direction == "ul" ):
-            matchedItem = patten.match(lines,startPos)
-            dataUL = int(matchedItem.group(2))
-            if( dataUL < self.highestRate and dataUL > self.lowestRate ):
-                return dataUL
-            else:
-                return -1
+        if( self.direction == "dl" or self.direction == "ul" ):
+            try:
+                matchedItem = patten.match(lines,startPos)
+                dataRate = int(matchedItem.group(1))
+                if( dataRate < self.highestRate and dataRate > self.lowestRate ):
+                    return dataRate
+                else:
+                    return -1
+            except AttributeError:
+                return -2
         else:
             traceLog("Error:your option of direction has error,eg: dl ul")
             sys.exit(1)
