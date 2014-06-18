@@ -5,8 +5,9 @@ from argparse import ArgumentParser
 import re,sys
 
 #wait for extend
-def traceLog(info):
-    print info
+def traceLog(info,isDebug):
+    if( isDebug ):
+        print info
 
     #---------func des---------------#
     #    generate the option and help
@@ -21,7 +22,8 @@ def makeOptions():
         "lowestRate" :"set the min threshold to abandon the data\type(parser.parse_args()[0])neg: 0",
         "direction"  :"set the upload or download\ndl --> calculate the download data\nul --> calculate the upload data",
         "interval"   :"set the interval time(seconds) to calculate the data\neg: 60",
-        "offset"     :"set the data item you want to ignore\neg: 2 --> abandon the first 2 items and the last 2 items"
+        "offset"     :"set the data item you want to ignore\neg: 2 --> abandon the first 2 items and the last 2 items",
+        "debug"      :"set debug as true 1"
     }
     parser = ArgumentParser()
     parser.add_argument("-startTime",dest = "startTime",nargs="+",help = "set the start time to calculate in the record File\neg: 2014-05-30 07:34:19")
@@ -36,30 +38,34 @@ def makeOptions():
 def processOptions(options):
     errorFlag = 0
     if( options.lowestRate == None ):
-        traceLog("Error:lowestRate cannot be None,input eg: -lowestRate 0")
+        traceLog("Error:lowestRate cannot be None,input eg: -lowestRate 0",isDebug)
         errorFlag = 1
     if( options.highestRate == None ):
-        traceLog("Error:highestRate cannot be None,input eg: -highestRate 200000000")
+        traceLog("Error:highestRate cannot be None,input eg: -highestRate 200000000",isDebug)
         errorFlag = 1
     if( options.direction == None ):
-        traceLog("Error:direction cannot be None,input eg:-direction dl")
+        traceLog("Error:direction cannot be None,input eg:-direction dl",isDebug)
         errorFlag = 1
     if( options.startTime == None ):
-        traceLog("Error:start time cannot be None,input eg:-startTime 2014-05-30 07:24:11.319")
+        traceLog("Error:start time cannot be None,input eg:-startTime 2014-05-30 07:24:11.319",isDebug)
         errorFlag = 1
     if( options.endTime == None ):
-        traceLog("Error:end time cannot be None,input eg:-endTime 2014-05-30 07:24:11.319")
+        traceLog("Error:end time cannot be None,input eg:-endTime 2014-05-30 07:24:11.319",isDebug)
         errorFlag = 1
     if( options.interval == None ):
-        traceLog("Error:interval cannot be None,input eg:-interval 60")
+        traceLog("Error:interval cannot be None,input eg:-interval 60",isDebug)
         errorFlag = 1
     if( options.recordFile == None ):
-        traceLog("Error:recordFile cannot be None,input eg: -recordFile event_DL_eNB66.txt")
+        traceLog("Error:recordFile cannot be None,input eg: -recordFile event_DL_eNB66.txt",isDebug)
         errorFlag = 1
     if( options.offset == None ):
         options.offset = 0
+    if( options.debug == None ):
+        options.debug = 0
     if( errorFlag ):
         sys.exit(1)
+
+    return int(options.debug)
 
 #---------class des---------------
 # it is a data trace machine to calculate the maxRate minRate averageRate in the time you set.
@@ -79,7 +85,6 @@ class DataTracer(object):
         self.highestRate = int(options.highestRate)
         self.lowestRate = int(options.lowestRate)
 
-        # self.args = args
         self.startTimePatten = None
         self.endTimePatten = None
         self.maxRate = -1
@@ -122,8 +127,8 @@ class DataTracer(object):
                 lines = file.read()
                 intervalNetMeter = self.getRecordFileProp(lines)
                 if( self.interval != intervalNetMeter):
-                    traceLog("Error:fail to process because interval you set is not matched with intervalNetMeter:{0}".format(intervalNetMeter))
-                    sys.exit(1)
+                    traceLog("the interval has been set as NetMeter Interval",isDebug)
+                    self.interval = intervalNetMeter
 
                 (startPos,endPos) = self.localStartEndPos(lines)
                 ratePerInterval = self.getRate(lines,startPos)
@@ -136,17 +141,20 @@ class DataTracer(object):
                         startPos += self.fileHeaderOffset
                     else:
                         rateList.append(ratePerInterval)
-                if( self.minRate == self.highestRate ):
+                if( self.minRate == self.highestRate and self.maxRate != -1 ):
                     self.minRate = -1
-                for rate in rateList:
-                    traceLog(rate)
+                else:
+                    self.minRate = self.minRate / self.interval
+                    self.maxRate = self.maxRate / self.interval
+                # for rate in rateList:
+                #     traceLog(rate)
                 try:
-                    self.averageRate = self.dataSum * 60  / self.timeSum
+                    self.averageRate = self.dataSum  / self.timeSum
                 except ZeroDivisionError:
                     self.averageRate = 0
-                    traceLog("Error:none of the data matched the standard so the time is 0")
+                    traceLog("Error:none of the data matched the standard so the time is 0",isDebug)
         except IOError:
-            traceLog("Error:can not open the record file,please check the property of the file")
+            traceLog("Error:can not open the record file,please check the property of the file",isDebug)
             sys.exit(1)
 
      #---------func des---------------
@@ -163,13 +171,13 @@ class DataTracer(object):
             startPos = lines.index(startTime) + self.perOffset * self.offset
             endPos = lines.index(endTime) - self.perOffset * self.offset
             if( startPos == -1 or endPos == -1 ):
-                traceLog("Warning:fail to find the position of time,please check the time you input")
+                traceLog("Warning:fail to find the position of time,please check the time you input",isDebug)
                 sys.exit(1)
             elif( startPos > endPos ):
-                traceLog("Error: end time must be later than the start time")
+                traceLog("Error: end time must be later than the start time",isDebug)
                 sys.exit(1)
         except:
-            traceLog("Warning:failed to locate the time in the NetMeter log file,please check the NetMeter Log")
+            traceLog("Warning:failed to locate the time in the NetMeter log file,please check the NetMeter Log",isDebug)
             sys.exit(1)
         return (startPos,endPos)
 
@@ -192,7 +200,7 @@ class DataTracer(object):
             except AttributeError:
                 return -2
         else:
-            traceLog("Error:your option of direction has error,eg: dl ul")
+            traceLog("Error:your option of direction has error,eg: dl ul",isDebug)
             sys.exit(1)
 
      #---------func des---------------
@@ -209,7 +217,7 @@ class DataTracer(object):
             if( ratePerInterval < self.minRate ):
                 self.minRate = ratePerInterval
         else:
-            traceLog("Info:ratePerInterval is not in the range [highestRate:lowestRate]")
+            traceLog("Info:ratePerInterval is not in the range [highestRate:lowestRate]",isDebug)
 
      #---------func des---------------
      #  get record file property: interval info & ip info
@@ -220,17 +228,17 @@ class DataTracer(object):
     def getRecordFileProp(self,lines):
         matchedCase = "Interval:  (\d+)"
         try:
-            pos = lines.index("Interval")
+            pos = lines.rindex("Interval")
             patten = re.compile(matchedCase)
             intervalNetMeter = int(patten.match(lines,pos).group(1))
         except:
-            traceLog("Error:failed to locate the NetMeter Interval,the program will set it by default:60")
-            intervalNetMeter = 60
+            traceLog("Error:failed to locate the NetMeter Interval,the program will set it by default:60",isDebug)
+            sys.exit(1)
         return intervalNetMeter
 
 if __name__ == "__main__":
     options = makeOptions()
-    processOptions(options)
+    isDebug = processOptions(options)
     myDataTracer = DataTracer(options)
     myDataTracer.process()
     print '\n{0} {1} ----- {2} {3}\n'.format(options.startTime[0],options.startTime[1],options.endTime[0],options.endTime[1])
