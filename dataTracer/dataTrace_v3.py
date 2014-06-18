@@ -1,7 +1,6 @@
 # coding = utf-8
 # script owner & author: You Zhang;
 
-from optparse import OptionParser
 from argparse import ArgumentParser
 import re,sys
 
@@ -135,7 +134,6 @@ class DataTracer(object):
                     ratePerInterval = self.getRate(lines,startPos)
                     if( ratePerInterval == -2 ):
                         startPos += self.fileHeaderOffset
-                        # TODO:the min -2 deal
                     else:
                         rateList.append(ratePerInterval)
                 if( self.minRate == self.highestRate ):
@@ -203,7 +201,7 @@ class DataTracer(object):
      # out:  max min sum
      #---------end--------------------
     def calResult(self,ratePerInterval):
-        if( ratePerInterval != -1 ):
+        if( ratePerInterval > 0 ):
             self.dataSum += ratePerInterval
             self.timeSum += self.interval
             if( ratePerInterval > self.maxRate ):
@@ -237,6 +235,3 @@ if __name__ == "__main__":
     myDataTracer.process()
     print '\n{0} {1} ----- {2} {3}\n'.format(options.startTime[0],options.startTime[1],options.endTime[0],options.endTime[1])
     print 'max:{0} min:{1} average: {2}'.format(myDataTracer.maxRate,myDataTracer.minRate,myDataTracer.averageRate)
-
-
-
